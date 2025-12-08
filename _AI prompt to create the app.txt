@@ -1,0 +1,87 @@
+Here is a comprehensive and technically detailed project description. You can copy and paste this directly into an AI prompt to generate the complete Flutter application.
+
+It is structured to ensure the AI understands the **data schema**, **business logic**, **UI requirements**, and **platform-specific nuances** (Android & Windows) that we solved during development.
+
+***
+
+# Project Title: Flutter MCQ Trainer with Local Database & Statistics
+
+### **1. Project Overview**
+Build a cross-platform (Android & Windows) Multiple Choice Question (MCQ) application using **Flutter**. The app loads questions from a local CSV file into a local SQLite database. It allows users to take quizzes based on categories, track their performance stats (accuracy, streaks), and specifically target "weak" or "unanswered" questions. It also includes comprehensive Import/Export functionality for database backups.
+
+### **2. Tech Stack Requirements**
+*   **Framework:** Flutter (latest stable).
+*   **Database:** `drift` (with `sqlite3` and `ffi` for Windows support).
+*   **State Management:** `provider`.
+*   **File Handling:** `file_picker`, `share_plus`, `csv`.
+*   **Persistence:** `shared_preferences` (for user settings).
+*   **Platform Support:** Android (minSdk 21) and Windows (requires `sqlite3.dll` handling).
+
+### **3. Data Model (Database Schema)**
+Create a table named `Questions` with the following columns:
+*   **Content:** `id` (AutoInc), `category` (String), `subCategory` (String), `questionNumber` (String), `textContent` (String), `optionA`, `optionB`, `optionC`, `optionD` (Strings), `correctAnswer` (String: "A", "B", "C", or "D"), `imageName` (Nullable String).
+*   **Statistics:**
+    *   `timesAnswered` (Int, default 0).
+    *   `timesCorrect` (Int, default 0).
+    *   `timesCorrectRecent` (Int, default 0) -> *Represents the current streak of correct answers.*
+    *   `timesChosenA`, `timesChosenB`, `timesChosenC`, `timesChosenD` (Ints, default 0).
+
+### **4. Key Features & Business Logic**
+
+**A. Initialization (CSV Import)**
+*   On first launch, populate the database from an asset file: `assets/questions.csv`.
+*   **CSV Format:** `Kategorie, Unter-Kategorie, Frage #, Frage, Antwort A...D, Richtige Antwort, Abbildung`.
+*   **Image Logic:** If the CSV `Abbildung` column contains "1", the app should look for `assets/images/picture_1.jpg`.
+
+**B. Quiz Logic**
+*   **Filtering:** Users can filter questions by Category and Sub-category.
+*   **Weak Questions:** A "Weak" question is defined as having a `timesCorrectRecent` streak **lower than a user-defined threshold** (default 3).
+*   **Unanswered:** Questions where `timesAnswered == 0`.
+*   **Scoring:**
+    *   If correct: Increment `timesAnswered`, `timesCorrect`, and `timesCorrectRecent`.
+    *   If wrong: Increment `timesAnswered`, reset `timesCorrectRecent` to 0.
+    *   Always update the specific `timesChosenX` count.
+
+**C. Import / Export**
+*   **Export:**
+    *   **DB:** Export the raw `.sqlite` file using the system share sheet.
+    *   **CSV:** (Optional) Export current data + stats to CSV.
+*   **Import:**
+    *   **DB:** Allow picking a `.sqlite` file from storage to overwrite the current database. *Note: Must handle closing the DB connection before overwriting.*
+
+### **5. UI/UX Specifications**
+
+**Screen 1: Home Screen**
+*   **Spinners:** Two dropdowns for "Category" and "Sub-Category" (dynamically populated from DB).
+*   **Settings:** A number input field to set the "Weak Streak Threshold" (persisted via SharedPrefs).
+*   **Checkbox:** "Only Train Weak Questions".
+*   **Buttons:**
+    *   "Start Quiz": Starts quiz based on selection.
+    *   "View Statistics": Navigates to Stats screen.
+    *   "Export DB" / "Import DB": Triggers file operations.
+    *   "Clear Database": Wipes data (useful for debugging).
+
+**Screen 2: Quiz Screen**
+*   **Top Bar:** Displays `Question ID`, `Times Answered | Accuracy %`, and `Current Streak`.
+*   **Image:** If an image exists, display it (flexible height).
+*   **Question Text:** Center aligned.
+*   **Options:** Scrollable list of 4 Radio Tiles.
+    *   *Behavior:* Clicking an option highlights the **Correct** answer in Green immediately. If the user picked wrong, highlight the **Wrong** answer in Red.
+*   **Submit Button:** Fixed at the bottom of the screen.
+    *   *Action:* Saves stats to DB, waits 1.5 seconds, then auto-advances to the next question.
+
+**Screen 3: Statistics Screen**
+*   **Overall Summary:** Row showing Total Questions vs Total Answered.
+*   **Hierarchical List:** Expandable tiles for Categories -> Sub-categories.
+*   **Sub-Category Card:**
+    *   Shows: Total Questions, Distinct Answered Count, Average Correctness %.
+    *   **Action Buttons:**
+        *   `All`: Start quiz for this sub-category.
+        *   `Unanswered`: Start quiz with only unanswered questions here.
+        *   `Weak`: Start quiz with only weak questions here.
+        *   `Reset`: Icon button to reset stats for this specific sub-category to 0.
+
+### **6. Technical Constraints & Fixes**
+*   **Windows FFI:** The code must handle loading `sqlite3.dll` manually in debug builds (`open.overrideFor(OperatingSystem.windows, ...)`).
+*   **Android FFI:** The code must use `sqlite3_flutter_libs` and call `applyWorkaroundToOpenSqlite3...` for compatibility.
+*   **Asset Naming:** Ensure code appends the prefix `picture_` to the ID found in the database when loading images (e.g., ID "5" -> `assets/images/picture_5.jpg`).
